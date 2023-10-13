@@ -11,18 +11,31 @@ class Candidate:
         self.phone = phone
 
 
-class CandidateManager(QMainWindow):
+class CandidateDatabase:
     def __init__(self):
-        super().__init__()
-
-        self.setWindowTitle("Candidate List Manager")
-        self.setGeometry(100, 100, 400, 400)
-
         self.conn = sqlite3.connect("candidates.db")
         self.cursor = self.conn.cursor()
         self.cursor.execute(
             "CREATE TABLE IF NOT EXISTS candidates (first_name TEXT, last_name TEXT, email TEXT, phone TEXT)")
         self.conn.commit()
+
+    def add_candidate(self, candidate):
+        self.cursor.execute("INSERT INTO candidates VALUES (?, ?, ?, ?)",
+                            (candidate.first_name, candidate.last_name, candidate.email, candidate.phone))
+        self.conn.commit()
+
+    def get_candidates(self):
+        self.cursor.execute('SELECT * FROM candidates')
+        candidates = self.cursor.fetchall()
+        return candidates
+
+
+class CandidateManagerUI(QMainWindow):
+    def __init__(self):
+        super().__init__()
+
+        self.setWindowTitle("Candidate List Manager")
+        self.setGeometry(100, 100, 400, 400)
 
         self.central_widget = QWidget()
         self.setCentralWidget(self.central_widget)
@@ -56,6 +69,9 @@ class CandidateManager(QMainWindow):
 
         self.central_widget.setLayout(self.layout)
 
+        self.db = CandidateDatabase()
+        self.display_candidates()
+
     def add_candidate(self):
         first_name = self.first_name_input.text()
         last_name = self.last_name_input.text()
@@ -64,10 +80,7 @@ class CandidateManager(QMainWindow):
 
         candidate = Candidate(first_name, last_name, email, phone)
 
-        self.cursor.execute("INSERT INTO candidates VALUES (?, ?, ?, ?)",
-                            (candidate.first_name, candidate.last_name, candidate.email, candidate.phone))
-
-        self.conn.commit()
+        self.db.add_candidate(candidate)
 
         self.first_name_input.clear()
         self.last_name_input.clear()
@@ -78,9 +91,7 @@ class CandidateManager(QMainWindow):
 
     def display_candidates(self):
         self.candidate_list.clear()
-
-        self.cursor.execute('SELECT * FROM candidates')
-        candidates = self.cursor.fetchall()
+        candidates = self.db.get_candidates()
 
         for candidate in candidates:
             self.candidate_list.addItem(f"{candidate[0]} {candidate[1]} ({candidate[2]}) - {candidate[3]}")
@@ -88,7 +99,7 @@ class CandidateManager(QMainWindow):
 
 def main():
     app = QApplication(sys.argv)
-    window = CandidateManager()
+    window = CandidateManagerUI()
     window.show()
     sys.exit(app.exec())
 
