@@ -1,6 +1,10 @@
 import sys
 import sqlite3
-from PyQt6.QtWidgets import QApplication, QMainWindow, QVBoxLayout, QWidget, QLineEdit, QPushButton, QListWidget
+from PyQt6.QtWidgets import QApplication, QMainWindow, QVBoxLayout, QWidget, QLineEdit, QPushButton, QListWidget, \
+    QDialog, QTextEdit
+import smtplib
+from email.mime.text import MIMEText
+from email.mime.multipart import MIMEMultipart
 
 
 class Candidate:
@@ -49,6 +53,8 @@ class CandidateManagerUI(QMainWindow):
 
         self.add_button = QPushButton("Add Candidate", self)
         self.add_button.clicked.connect(self.add_candidate)
+        self.send_email_button = QPushButton("Send Email to All", self)
+        self.send_email_button.clicked.connect(self.open_send_email_dialog)
 
         self.candidate_list = QListWidget(self)
 
@@ -67,6 +73,7 @@ class CandidateManagerUI(QMainWindow):
         self.layout.addWidget(self.add_button)
         self.layout.addWidget(self.candidate_list)
 
+        self.layout.addWidget(self.send_email_button)
         self.central_widget.setLayout(self.layout)
 
         self.db = CandidateDatabase()
@@ -95,6 +102,63 @@ class CandidateManagerUI(QMainWindow):
 
         for candidate in candidates:
             self.candidate_list.addItem(f"{candidate[0]} {candidate[1]} ({candidate[2]}) - {candidate[3]}")
+
+    def open_send_email_dialog(self):
+        dialog = SendEmailDialog()
+        dialog.exec()
+
+
+class SendEmailDialog(QDialog):
+    def __init__(self):
+        super().__init__()
+
+        self.setWindowTitle("Send Email to All Candidates")
+        self.setGeometry(200, 200, 400, 200)
+
+        self.layout = QVBoxLayout()
+
+        self.email_text = QTextEdit(self)
+        self.email_text.setPlaceholderText("Enter your email text here")
+
+        self.send_button = QPushButton("Send", self)
+        self.send_button.clicked.connect(self.send_email)
+
+        self.layout.addWidget(self.email_text)
+        self.layout.addWidget(self.send_button)
+
+        self.setLayout(self.layout)
+
+    def send_email(self):
+        email_text = self.email_text.toPlainText()
+
+        db = CandidateDatabase()
+        candidates = db.get_candidates()
+
+        for candidate in candidates:
+            email = candidate[2]
+            self.send_individual_email(email, email_text)
+
+        self.accept()
+
+    def send_individual_email(self, to_email, email_text):
+        try:
+            msg = MIMEMultipart()
+            msg['From'] = 'testemailsenderpy366@gmail.com'
+            msg['Subject'] = 'Your Subject Here'
+            msg['To'] = to_email
+
+            msg.attach(MIMEText(email_text, 'plain'))
+
+            smtp_server = smtplib.SMTP_SSL('smtp.gmail.com', 465)
+            smtp_server.login('testemailsenderpy366@gmail.com',
+                              'ioqw rtxi vudc qtda')
+
+            smtp_server.sendmail('testemailsenderpy366@gmail.com', to_email, msg.as_string())
+
+            smtp_server.quit()
+            print(f"Email sent successfully to {to_email}")
+        except Exception as e:
+            print(f"An error occurred: {str(e)}")
 
 
 def main():
